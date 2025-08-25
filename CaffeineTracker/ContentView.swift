@@ -1,4 +1,3 @@
-w23//
 //  ContentView.swift
 //  CaffeineTracker
 //
@@ -8,17 +7,25 @@ w23//
 import SwiftUI
 
 struct ContentView: View {
+    @StateObject private var manager = CaffeineIntakeManager()
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        VStack(spacing: 20) {
+            Text("Total: \(manager.todaysTotalCaffeine(), specifier: "%.0f") mg")
+            
+            Button("Add Espresso") {
+                let entry = CaffeineEntry(
+                    beverageType: .espresso,
+                    caffeineAmount: 63
+                )
+                manager.addEntry(entry)
+            }
+            
+            Text("Entries: \(manager.entries.count)")
         }
         .padding()
     }
 }
-
 #Preview {
     ContentView()
 }
