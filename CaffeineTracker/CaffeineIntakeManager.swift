@@ -10,35 +10,52 @@ import SwiftUI
 
 class CaffeineIntakeManager: ObservableObject {
     @Published var entries: [CaffeineEntry] = []
+    @Published var dailyLimit: Double = 400.0
+    
+    private let entriesKey = "caffeineEntries"
     
     init() {
-        print("Good")
+        loadEntries()
     }
     
-    //
     func addEntry(_ entry: CaffeineEntry) {
         entries.append(entry)
-        print("Added entry: \(entry.beverageType.name)")
+        saveEntries()
     }
     
     func deleteEntry(_ entry: CaffeineEntry) {
         entries.removeAll { $0.id == entry.id }
+        saveEntries()
     }
     
     func todaysTotalCaffeine() -> Double {
         let calendar = Calendar.current
         let today = Date()
         
-        // Filter to only today's entries
         let todaysEntries = entries.filter { entry in
             calendar.isDate(entry.timestamp, inSameDayAs: today)
         }
         
-        // Add up all caffeine amounts
         let total = todaysEntries.reduce(0) { sum, entry in
             sum + entry.caffeineAmount
         }
         
         return total
+    }
+    
+    // MARK: - Persistence
+    
+    private func saveEntries() {
+        if let encoded = try? JSONEncoder().encode(entries) {
+            UserDefaults.standard.set(encoded, forKey: entriesKey)
+        }
+    }
+    
+    private func loadEntries() {
+        guard let data = UserDefaults.standard.data(forKey: entriesKey),
+              let decoded = try? JSONDecoder().decode([CaffeineEntry].self, from: data) else {
+            return
+        }
+        entries = decoded
     }
 }
