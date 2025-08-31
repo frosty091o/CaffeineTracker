@@ -58,4 +58,31 @@ class CaffeineIntakeManager: ObservableObject {
         }
         entries = decoded
     }
+    
+    func todaysEntries() -> [CaffeineEntry] {
+        let calendar = Calendar.current
+        let today = Date()
+        
+        return entries
+            .filter { calendar.isDate($0.timestamp, inSameDayAs: today) }
+            .sorted { $0.timestamp > $1.timestamp }
+    }
+
+    func isOverLimit() -> Bool {
+        return todaysTotalCaffeine() > dailyLimit
+    }
+
+    func percentageOfLimit() -> Double {
+        let percentage = todaysTotalCaffeine() / dailyLimit
+        return min(percentage, 1.5)
+    }
+
+    func entriesCount() -> Int {
+        return entries.count
+    }
+
+    func clearAllEntries() {
+        entries.removeAll()
+        saveEntries()
+    }
 }
