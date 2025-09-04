@@ -9,6 +9,7 @@ import SwiftUI
 
 struct DashboardView: View {
     @EnvironmentObject var manager: CaffeineIntakeManager
+    @State private var showingAddEntry = false
     
     var body: some View {
         NavigationView {
@@ -61,7 +62,12 @@ struct DashboardView: View {
                                     Image(systemName: entry.beverageType.category.iconName)
                                         .foregroundColor(.blue)
                                     
-                                    Text(entry.beverageType.name)
+                                    VStack(alignment: .leading) {
+                                        Text(entry.beverageType.name)
+                                        Text(entry.timestamp, style: .time)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
                                     
                                     Spacer()
                                     
@@ -79,13 +85,9 @@ struct DashboardView: View {
                 
                 // Add Button
                 Button(action: {
-                    let entry = CaffeineEntry(
-                        beverageType: .espresso,
-                        caffeineAmount: 63
-                    )
-                    manager.addEntry(entry)
+                    showingAddEntry = true
                 }) {
-                    Label("Add Espresso", systemImage: "plus.circle.fill")
+                    Label("Add Drink", systemImage: "plus.circle.fill")
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(Color.blue)
@@ -95,6 +97,10 @@ struct DashboardView: View {
                 .padding(.horizontal)
             }
             .navigationTitle("Caffeine Tracker")
+            .sheet(isPresented: $showingAddEntry) {
+                AddEntryView()
+                    .environmentObject(manager)
+            }
         }
     }
 }
