@@ -13,11 +13,15 @@ class CaffeineIntakeManager: ObservableObject {
     @Published var dailyLimit: Double = 400.0
     
     private let entriesKey = "caffeineEntries"
+    private let dailyLimitKey = "dailyLimit"
     
     init() {
+        // Load daily limit
+        let savedLimit = UserDefaults.standard.double(forKey: dailyLimitKey)
+        self.dailyLimit = savedLimit > 0 ? savedLimit : 400.0
+        
         loadEntries()
     }
-    
     func addEntry(_ entry: CaffeineEntry) {
         entries.append(entry)
         saveEntries()
@@ -41,6 +45,21 @@ class CaffeineIntakeManager: ObservableObject {
         }
         
         return total
+    }
+    
+    func weeklyAverage() -> Double {
+        let calendar = Calendar.current
+        let today = Date()
+        guard let weekAgo = calendar.date(byAdding: .day, value: -7, to: today) else {
+            return 0
+        }
+        
+        let weekEntries = entries.filter { entry in
+            entry.timestamp >= weekAgo && entry.timestamp <= today
+        }
+        
+        let total = weekEntries.reduce(0) { $0 + $1.caffeineAmount }
+        return total / 7.0
     }
     
     // MARK: - Persistence
@@ -85,4 +104,9 @@ class CaffeineIntakeManager: ObservableObject {
         entries.removeAll()
         saveEntries()
     }
+    
+    func saveDailyLimit() {
+        UserDefaults.standard.set(dailyLimit, forKey: dailyLimitKey)
+    }
+    
 }

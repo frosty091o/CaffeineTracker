@@ -22,6 +22,12 @@ struct ContentView: View {
                     Label("History", systemImage: "clock")
                 }
                 .environmentObject(manager)
+            
+            SettingsView()
+                .tabItem {
+                    Label("Settings", systemImage: "gear")
+                }
+                .environmentObject(manager)
         }
     }
 }
