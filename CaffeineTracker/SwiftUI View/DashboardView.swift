@@ -77,6 +77,12 @@ struct DashboardView: View {
                                 .padding(.horizontal)
                                 .padding(.vertical, 5)
                             }
+                            .onDelete { indexSet in
+                                let todaysEntries = manager.todaysEntries()
+                                for index in indexSet {
+                                    manager.deleteEntry(todaysEntries[index])
+                                }
+                            }
                         }
                     }
                 }

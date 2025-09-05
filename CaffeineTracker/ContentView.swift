@@ -10,11 +10,18 @@ struct ContentView: View {
     @StateObject private var manager = CaffeineIntakeManager()
     
     var body: some View {
-        DashboardView()
-            .environmentObject(manager)
+        TabView {
+            DashboardView()
+                .tabItem {
+                    Label("Today", systemImage: "cup.and.saucer.fill")
+                }
+                .environmentObject(manager)
+            
+            HistoryView()
+                .tabItem {
+                    Label("History", systemImage: "clock")
+                }
+                .environmentObject(manager)
+        }
     }
-}
-
-#Preview {
-    ContentView()
 }
