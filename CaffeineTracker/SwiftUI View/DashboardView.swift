@@ -10,6 +10,7 @@ import SwiftUI
 struct DashboardView: View {
     @EnvironmentObject var manager: CaffeineIntakeManager
     @State private var showingAddEntry = false
+    @State private var showingLimitAlert = false
     
     var body: some View {
         NavigationView {
@@ -107,6 +108,20 @@ struct DashboardView: View {
                 AddEntryView()
                     .environmentObject(manager)
             }
+        }
+        .onAppear {
+            checkDailyLimit()
+        }
+        .alert("Daily Limit Exceeded", isPresented: $showingLimitAlert) {
+            Button("OK") { }
+        } message: {
+            Text("You've exceeded your daily caffeine limit of \(Int(manager.dailyLimit))mg. Consider reducing intake.")
+        }
+    }
+    
+    func checkDailyLimit() {
+        if manager.isOverLimit() && !manager.todaysEntries().isEmpty {
+            showingLimitAlert = true
         }
     }
 }

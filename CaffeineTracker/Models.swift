@@ -148,3 +148,66 @@ extension CaffeineEntry: Trackable {}
 extension CaffeineEntry: Persistable {
     static var storageKey: String { "caffeineEntries" }
 }
+
+// MARK: - Error Handling
+
+enum CaffeineTrackerError: LocalizedError {
+    case invalidAmount
+    case exceedsMaximumLimit(limit: Double)
+    case dataCorrupted
+    case saveFailed
+    
+    var errorDescription: String? {
+        switch self {
+        case .invalidAmount:
+            return "Please enter a valid amount greater than 0"
+        case .exceedsMaximumLimit(let limit):
+            return "Warning: This exceeds the recommended daily limit of \(Int(limit))mg"
+        case .dataCorrupted:
+            return "Unable to load saved data"
+        case .saveFailed:
+            return "Failed to save your entry. Please try again."
+        }
+    }
+}
+
+// MARK: - Validation
+
+extension CaffeineEntry {
+    var isValid: Bool {
+        caffeineAmount > 0 && caffeineAmount < 1000
+    }
+}
+
+extension BeverageType {
+    var isHighCaffeine: Bool {
+        defaultCaffeineContent > 150
+    }
+    
+    var caffeineLevel: String {
+        switch defaultCaffeineContent {
+        case 0..<50:
+            return "Low"
+        case 50..<150:
+            return "Moderate"
+        default:
+            return "High"
+        }
+    }
+}
+
+// MARK: - Date Extensions
+
+extension Date {
+    var isToday: Bool {
+        Calendar.current.isDateInToday(self)
+    }
+    
+    var isYesterday: Bool {
+        Calendar.current.isDateInYesterday(self)
+    }
+    
+    func isSameDay(as date: Date) -> Bool {
+        Calendar.current.isDate(self, inSameDayAs: date)
+    }
+}

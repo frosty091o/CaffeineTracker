@@ -22,6 +22,9 @@ class CaffeineIntakeManager: ObservableObject {
         
         loadEntries()
     }
+    
+    // MARK: - CRUD Operations
+    
     func addEntry(_ entry: CaffeineEntry) {
         entries.append(entry)
         saveEntries()
@@ -31,6 +34,15 @@ class CaffeineIntakeManager: ObservableObject {
         entries.removeAll { $0.id == entry.id }
         saveEntries()
     }
+    
+    func updateEntry(_ entry: CaffeineEntry) {
+        if let index = entries.firstIndex(where: { $0.id == entry.id }) {
+            entries[index] = entry
+            saveEntries()
+        }
+    }
+    
+    // MARK: - Query Methods
     
     func todaysTotalCaffeine() -> Double {
         let calendar = Calendar.current
@@ -46,6 +58,57 @@ class CaffeineIntakeManager: ObservableObject {
         
         return total
     }
+    
+    func todaysEntries() -> [CaffeineEntry] {
+        let calendar = Calendar.current
+        let today = Date()
+        
+        return entries
+            .filter { calendar.isDate($0.timestamp, inSameDayAs: today) }
+            .sorted { $0.timestamp > $1.timestamp }
+    }
+    
+    func isOverLimit() -> Bool {
+        return todaysTotalCaffeine() > dailyLimit
+    }
+    
+    func percentageOfLimit() -> Double {
+        let percentage = todaysTotalCaffeine() / dailyLimit
+        return min(percentage, 1.5)
+    }
+    
+    func entriesCount() -> Int {
+        return entries.count
+    }
+    
+    func clearAllEntries() {
+        entries.removeAll()
+        saveEntries()
+    }
+    
+    func canAddMoreCaffeine() -> Bool {
+        return todaysTotalCaffeine() < dailyLimit
+    }
+    
+    func remainingCaffeine() -> Double {
+        max(0, dailyLimit - todaysTotalCaffeine())
+    }
+    
+    // MARK: - Validation
+    
+    func validateEntry(_ entry: CaffeineEntry) -> Result<CaffeineEntry, CaffeineTrackerError> {
+        guard entry.caffeineAmount > 0 else {
+            return .failure(.invalidAmount)
+        }
+        
+        guard entry.caffeineAmount < 1000 else {
+            return .failure(.exceedsMaximumLimit(limit: 1000))
+        }
+        
+        return .success(entry)
+    }
+    
+    // MARK: - Statistics
     
     func weeklyAverage() -> Double {
         let calendar = Calendar.current
@@ -78,35 +141,7 @@ class CaffeineIntakeManager: ObservableObject {
         entries = decoded
     }
     
-    func todaysEntries() -> [CaffeineEntry] {
-        let calendar = Calendar.current
-        let today = Date()
-        
-        return entries
-            .filter { calendar.isDate($0.timestamp, inSameDayAs: today) }
-            .sorted { $0.timestamp > $1.timestamp }
-    }
-
-    func isOverLimit() -> Bool {
-        return todaysTotalCaffeine() > dailyLimit
-    }
-
-    func percentageOfLimit() -> Double {
-        let percentage = todaysTotalCaffeine() / dailyLimit
-        return min(percentage, 1.5)
-    }
-
-    func entriesCount() -> Int {
-        return entries.count
-    }
-
-    func clearAllEntries() {
-        entries.removeAll()
-        saveEntries()
-    }
-    
     func saveDailyLimit() {
         UserDefaults.standard.set(dailyLimit, forKey: dailyLimitKey)
     }
-    
 }
