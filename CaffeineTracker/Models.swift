@@ -151,7 +151,8 @@ extension CaffeineEntry: Persistable {
 
 // MARK: - Error Handling
 
-enum CaffeineTrackerError: LocalizedError {
+// Find this enum and add Equatable:
+enum CaffeineTrackerError: LocalizedError, Equatable {
     case invalidAmount
     case exceedsMaximumLimit(limit: Double)
     case dataCorrupted
