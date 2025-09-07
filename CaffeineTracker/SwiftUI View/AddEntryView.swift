@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct AddEntryView: View {
+    let lookup = CaffeineLookupService(fdcKey: "b0cehDATvB5rLhcsQTDDtO6GZia3fSeYjNzUAOBf")
     @EnvironmentObject var manager: CaffeineIntakeManager
     @Environment(\.dismiss) var dismiss
     
@@ -18,6 +19,10 @@ struct AddEntryView: View {
     
     @State private var showingError = false
     @State private var errorMessage = ""
+    
+    @State private var query = ""
+    @State private var results: [LookupResult] = []
+    @State private var isLoading = false
     
     var calculatedCaffeine: Double {
         if useCustomAmount {
@@ -62,6 +67,61 @@ struct AddEntryView: View {
                             Spacer()
                             Text("\(Int(selectedBeverage.defaultCaffeineContent)) mg")
                                 .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                
+                // Lookup Section
+                Section(header: Text("Lookup (Optional)")) {
+                    TextField("Search by name or barcode", text: $query)
+                    
+                    Button("Search") {
+                        Task {
+                            isLoading = true
+                            defer { isLoading = false }
+                            results = []
+                            
+                            let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+                            
+                            // If numeric -> treat as barcode (Open Food Facts first)
+                            if !trimmed.isEmpty && trimmed.allSatisfy({ $0.isNumber }) {
+                                let barcodeResults = (try? await lookup.fetchByBarcodeOFF(barcode: trimmed)) ?? []
+                                results = barcodeResults.filter { ($0.mgPerServing ?? 0) > 0 }
+                            } else {
+                                // Run OFF + FDC in parallel for text queries
+                                async let offTask = lookup.searchOFFByName(name: trimmed)
+                                async let fdcTask = lookup.searchFDC(name: trimmed)
+                                
+                                let off = (try? await offTask) ?? []
+                                let fdc = (try? await fdcTask) ?? []
+                                
+                                // Combine, filter, de-duplicate by name+amount
+                                let combined = (off + fdc).filter { ($0.mgPerServing ?? 0) > 0 }
+                                var seen = Set<String>()
+                                results = combined.filter { r in
+                                    let key = r.displayName.lowercased() + "-" + String(Int(r.mgPerServing ?? -1))
+                                    return seen.insert(key).inserted
+                                }
+                            }
+                        }
+                    }
+                    
+                    if isLoading {
+                        ProgressView()
+                    }
+                    
+                    ForEach(results) { r in
+                        Button {
+                            selectedBeverage = BeverageType(name: r.displayName, defaultCaffeineContent: r.mgPerServing ?? 0, servingSize: selectedBeverage.servingSize, category: .coffee)
+                            useCustomAmount = true
+                            customAmount = String(Int(r.mgPerServing ?? 0))
+                        } label: {
+                            HStack {
+                                Text(r.displayName)
+                                Spacer()
+                                Text(r.mgPerServing.map { "\(Int($0)) mg" } ?? "—")
+                                    .foregroundColor(.secondary)
+                            }
                         }
                     }
                 }
