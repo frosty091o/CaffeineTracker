@@ -5,11 +5,10 @@
 //  Created by Ethan on 23/8/2025.
 //
 
+import XCTest
 import Testing
 @testable import CaffeineTracker
 
-import XCTest
-@testable import CaffeineTracker
 
 final class CaffeineTrackerTests: XCTestCase {
     
