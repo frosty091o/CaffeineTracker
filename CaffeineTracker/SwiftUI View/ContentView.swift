@@ -17,6 +17,12 @@ struct ContentView: View {
                 }
                 .environmentObject(manager)
             
+            CalendarView()
+                .tabItem {
+                    Label("Calendar", systemImage: "calendar")
+                }
+                .environmentObject(manager)
+            
             HistoryView()
                 .tabItem {
                     Label("History", systemImage: "clock")
