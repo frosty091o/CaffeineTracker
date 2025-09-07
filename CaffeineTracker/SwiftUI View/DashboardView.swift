@@ -19,26 +19,23 @@ struct DashboardView: View {
                 VStack(spacing: 10) {
                     Text("\(Int(manager.todaysTotalCaffeine()))")
                         .font(.system(size: 60, weight: .bold))
+                        .monospacedDigit()
                         .foregroundColor(manager.isOverLimit() ? .red : .primary)
                     
                     Text("mg of caffeine today")
                         .font(.headline)
                         .foregroundColor(.secondary)
                     
-                    // Progress Bar - Fixed so doesnt overflow
-                    ZStack(alignment: .leading) {
-                        Rectangle()
-                            .frame(height: 20)
-                            .foregroundColor(.gray.opacity(0.3))
-                            .cornerRadius(10)
-                        
-                        Rectangle()
-                            .frame(width: min(CGFloat(manager.percentageOfLimit()) * 300, 300), height: 20)
-                            .foregroundColor(manager.isOverLimit() ? .red : .green)
-                            .cornerRadius(10)
-                            .animation(.easeInOut(duration: 0.3), value: manager.percentageOfLimit())
+                    Gauge(value: min(manager.percentageOfLimit(), 1), in: 0...1) {
+                        EmptyView()
+                    } currentValueLabel: {
+                        Text("\(Int(manager.percentageOfLimit() * 100))%")
+                            .font(.caption)
+                            .monospacedDigit()
                     }
-                    .frame(width: 300)
+                    .gaugeStyle(.linearCapacity)
+                    .tint(manager.isOverLimit() ? .red : .green)
+                    .padding(.horizontal)
                     
                     // Percentage text with warning
                     if manager.isOverLimit() {
@@ -52,28 +49,30 @@ struct DashboardView: View {
                                 .bold()
                         }
                     } else {
-                        Text("\(Int(manager.percentageOfLimit() * 100))% of daily limit")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        EmptyView()
                     }
                 }
                 .padding()
                 .background(Color(.systemGray6))
                 .cornerRadius(15)
+                .frame(maxWidth: .infinity)
+                .shadow(color: Color.black.opacity(0.06), radius: 8, y: 2)
+                .padding(.top, 20)
                 
                 // Today's Entries List
                 if manager.todaysEntries().isEmpty {
-                    VStack(spacing: 10) {
+                    VStack(spacing: 8) {
                         Image(systemName: "cup.and.saucer")
-                            .font(.system(size: 50))
+                            .font(.system(size: 44))
                             .foregroundColor(.gray.opacity(0.5))
                         Text("No caffeine logged today")
+                            .font(.headline)
                             .foregroundColor(.secondary)
-                        Text("Tap the button below to add your first drink")
-                            .font(.caption)
+                        Text("Tap Add Drink to log your first beverage.")
+                            .font(.footnote)
                             .foregroundColor(.secondary)
                     }
-                    .padding()
+                    .padding(.vertical, 24)
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 10) {
@@ -114,11 +113,11 @@ struct DashboardView: View {
                                         }
                                     }
                                 }
-                                .padding(.horizontal)
-                                .padding(.vertical, 8)
+                                .padding(.vertical, 10)
+                                .padding(.horizontal, 12)
                                 .background(Color(.systemBackground))
                                 .cornerRadius(8)
-                                .padding(.horizontal, 10)
+                                .padding(.horizontal)
                             }
                             .onDelete { indexSet in
                                 let todaysEntries = manager.todaysEntries()
@@ -127,6 +126,7 @@ struct DashboardView: View {
                                 }
                             }
                         }
+                        .padding()
                     }
                     .background(Color(.systemGray6).opacity(0.5))
                     .cornerRadius(10)
@@ -145,28 +145,13 @@ struct DashboardView: View {
                     }
                     .foregroundColor(.secondary)
                 }
-                
-                // Add Button
-                Button(action: {
-                    showingAddEntry = true
-                }) {
-                    HStack {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
-                        Text("Add Drink")
-                            .font(.headline)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(manager.isOverLimit() ? Color.orange : Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
-                    .shadow(radius: 2)
-                }
-                .padding(.horizontal)
             }
-            .navigationTitle("Caffeine Tracker")
+            //.navigationTitle("Caffeine Tracker")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Caffeine Tracker").font(.title2).bold()
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
                         showingAddEntry = true
@@ -181,6 +166,23 @@ struct DashboardView: View {
                     .onDisappear {
                         checkDailyLimit()
                     }
+            }
+            .padding(.horizontal, 20)
+            .safeAreaInset(edge: .bottom) {
+                Button(action: {
+                    showingAddEntry = true
+                }) {
+                    Label("Add Drink", systemImage: "plus.circle.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(manager.isOverLimit() ? Color.orange : Color.accentColor)
+                        .foregroundColor(.white)
+                        .cornerRadius(14)
+                        .shadow(radius: 2)
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 8)
             }
         }
         .onAppear {
