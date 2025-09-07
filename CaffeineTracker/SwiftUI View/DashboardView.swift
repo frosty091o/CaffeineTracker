@@ -182,7 +182,7 @@ struct DashboardView: View {
                         .shadow(radius: 2)
                 }
                 .padding(.horizontal)
-                .padding(.bottom, 8)
+                .padding(.bottom, 18)
             }
         }
         .onAppear {

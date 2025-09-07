@@ -38,48 +38,54 @@ struct CalendarView: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
+            VStack(spacing: 16) {
                 // Month Navigation
                 HStack {
                     Button(action: previousMonth) {
                         Image(systemName: "chevron.left")
-                            .font(.title2)
+                            .font(.headline)
+                            .padding(8)
+                            .background(Color(.systemGray6))
+                            .clipShape(Circle())
                     }
-                    
                     Spacer()
-                    
                     Text(monthYearString)
-                        .font(.title2)
-                        .bold()
-                    
+                        .font(.title2.weight(.semibold))
                     Spacer()
-                    
                     Button(action: nextMonth) {
                         Image(systemName: "chevron.right")
-                            .font(.title2)
+                            .font(.headline)
+                            .padding(8)
+                            .background(Color(.systemGray6))
+                            .clipShape(Circle())
                     }
                 }
                 .padding(.horizontal)
+                .padding(.vertical, 8)
+                .overlay(alignment: .bottom) { Divider() }
                 
                 // Weekday Headers
                 HStack {
                     ForEach(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], id: \.self) { day in
-                        Text(day)
-                            .font(.caption)
-                            .fontWeight(.semibold)
+                        Text(day.uppercased())
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
                             .frame(maxWidth: .infinity)
                     }
                 }
                 .padding(.horizontal)
                 
                 // Calendar Grid
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 15) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 12) {
                     ForEach(daysWithPadding(), id: \.self) { date in
                         if let date = date {
                             DayView(date: date, isSelected: calendar.isDate(date, inSameDayAs: selectedDate))
                                 .environmentObject(manager)
                                 .onTapGesture {
-                                    selectedDate = date
+                                    withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                                        selectedDate = date
+                                    }
                                     showingDateDetail = true
                                 }
                         } else {
@@ -90,53 +96,50 @@ struct CalendarView: View {
                 }
                 .padding(.horizontal)
                 
-                // Quick Stats for Selected Date
+                Spacer()
+                
+                // Quick Stats for Selected Date (moved to bottom)
                 VStack(spacing: 10) {
                     Text(formatSelectedDate())
                         .font(.headline)
                     
-                    HStack(spacing: 20) {
-                        VStack {
-                            Text("\(Int(manager.totalCaffeine(for: selectedDate)))")
-                                .font(.title2)
-                                .bold()
-                            Text("mg")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                    HStack(spacing: 0) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "bolt.fill")
+                            Text("\(Int(manager.totalCaffeine(for: selectedDate))) mg")
+                                .monospacedDigit()
+                                .font(.headline)
                         }
+                        .frame(maxWidth: .infinity, alignment: .center)
                         
-                        Divider()
-                            .frame(height: 30)
+                        Divider().frame(height: 28)
                         
-                        VStack {
-                            Text("\(manager.entries(for: selectedDate).count)")
-                                .font(.title2)
-                                .bold()
-                            Text("drinks")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                        HStack(spacing: 8) {
+                            Image(systemName: "cup.and.saucer.fill")
+                            Text("\(manager.entries(for: selectedDate).count) drinks")
+                                .monospacedDigit()
+                                .font(.headline)
                         }
+                        .frame(maxWidth: .infinity, alignment: .center)
                         
-                        Divider()
-                            .frame(height: 30)
+                        Divider().frame(height: 28)
                         
-                        VStack {
-                            Text("\(Int(manager.percentageOfLimit(for: selectedDate) * 100))%")
-                                .font(.title2)
-                                .bold()
+                        HStack(spacing: 8) {
+                            Image(systemName: "percent")
+                            Text("\(Int(manager.percentageOfLimit(for: selectedDate) * 100))% of limit")
+                                .monospacedDigit()
+                                .font(.headline)
                                 .foregroundColor(manager.isOverLimit(for: selectedDate) ? .red : .green)
-                            Text("of limit")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
                         }
+                        .frame(maxWidth: .infinity, alignment: .center)
                     }
                     .padding()
                     .background(Color(.systemGray6))
-                    .cornerRadius(10)
+                    .cornerRadius(15)
+                    .shadow(color: Color.black.opacity(0.06), radius: 8, y: 2)
                 }
                 .padding(.horizontal)
-                
-                Spacer()
+                .padding(.bottom, 8)
             }
             .navigationTitle("Calendar")
             .navigationBarTitleDisplayMode(.inline)
@@ -218,30 +221,52 @@ struct DayView: View {
     }
     
     var body: some View {
-        VStack(spacing: 4) {
-            Text(dayNumber)
-                .font(.system(size: 16, weight: isToday ? .bold : .medium))
-                .foregroundColor(isToday ? .white : .primary)
+        ZStack {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(.systemBackground))
+                .shadow(color: Color.black.opacity(0.04), radius: 3, y: 1)
             
-            if hasEntries {
-                Text("\(Int(caffeineAmount))")
-                    .font(.caption2)
-                    .foregroundColor(manager.isOverLimit(for: date) ? .red : .green)
-            } else {
-                Text("-")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+            VStack(spacing: 6) {
+                Text(dayNumber)
+                    .font(.system(size: 16, weight: isToday ? .bold : .medium))
+                    .foregroundColor(.primary)
+                    .overlay(
+                        Group {
+                            if isToday {
+                                Capsule()
+                                    .stroke(Color.accentColor, lineWidth: 2)
+                                    .frame(height: 22)
+                                    .offset(y: 0)
+                                    .opacity(0.9)
+                            }
+                        }, alignment: .center
+                    )
+                
+                if hasEntries {
+                    Text("\(Int(caffeineAmount))")
+                        .font(.caption2)
+                        .monospacedDigit()
+                        .foregroundColor(manager.isOverLimit(for: date) ? .red : .green)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule().fill((manager.isOverLimit(for: date) ? Color.red.opacity(0.12) : Color.green.opacity(0.12)))
+                        )
+                } else {
+                    Text("—")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
             }
+            .padding(8)
         }
-        .frame(width: 40, height: 50)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isToday ? Color.accentColor : (isSelected ? Color(.systemGray5) : Color(.systemGray6)))
-        )
+        .frame(width: 44, height: 56)
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
         )
+        .scaleEffect(isSelected ? 1.02 : 1.0)
+        .animation(.spring(response: 0.25, dampingFraction: 0.85), value: isSelected)
     }
 }
 
@@ -269,6 +294,7 @@ struct DateDetailView: View {
                 VStack(spacing: 10) {
                     Text("\(Int(manager.totalCaffeine(for: date)))")
                         .font(.system(size: 50, weight: .bold))
+                        .monospacedDigit()
                         .foregroundColor(manager.isOverLimit(for: date) ? .red : .primary)
                     
                     Text("mg of caffeine")
@@ -278,10 +304,12 @@ struct DateDetailView: View {
                     ProgressView(value: min(manager.percentageOfLimit(for: date), 1.0))
                         .tint(manager.isOverLimit(for: date) ? .red : .green)
                         .padding(.horizontal)
+                        .opacity(0.9)
                 }
                 .padding()
                 .background(Color(.systemGray6))
                 .cornerRadius(15)
+                .shadow(color: Color.black.opacity(0.06), radius: 8, y: 2)
                 .padding()
                 
                 // Entries List
