@@ -5,17 +5,23 @@
 //  Created by Ethan on 6/9/2025.
 //
 
+// settings screen: edit daily limit, view stats, clear data, check app info
+
 import SwiftUI
 
 struct SettingsView: View {
+    // shared data manager
     @EnvironmentObject var manager: CaffeineIntakeManager
+    // text binding for caffeine limit field
     @State private var dailyLimitText = ""
+    // flag for reset alert
     @State private var showingResetAlert = false
     
     var body: some View {
+        // main container with nav + form
         NavigationView {
             Form {
-                // Daily Limit Section
+                // daily limit
                 Section(header: Text("Daily Limit")) {
                     HStack {
                         Text("Caffeine Limit")
@@ -42,7 +48,7 @@ struct SettingsView: View {
                         .foregroundColor(.secondary)
                 }
                 
-                // Statistics Section
+                // stats
                 Section(header: Text("Statistics")) {
                     HStack {
                         Text("Total Entries")
@@ -66,7 +72,7 @@ struct SettingsView: View {
                     }
                 }
                 
-                // Data Management Section
+                // data management
                 Section(header: Text("Data Management")) {
                     Button(action: {
                         showingResetAlert = true
@@ -76,7 +82,7 @@ struct SettingsView: View {
                     }
                 }
                 
-                // About Section
+                // about
                 Section(header: Text("About")) {
                     HStack {
                         Text("Version")
@@ -86,7 +92,16 @@ struct SettingsView: View {
                     }
                 }
             }
-            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                // centered title like other screens
+                ToolbarItem(placement: .principal) {
+                    Text("Settings")
+                        .font(.title2)
+                        .bold()
+                }
+            }
+            // confirm before clearing all data
             .alert("Clear All Data?", isPresented: $showingResetAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Clear", role: .destructive) {

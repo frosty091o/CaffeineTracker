@@ -74,8 +74,51 @@ struct DashboardView: View {
                     }
                     .padding(.vertical, 24)
                 } else {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 10) {
+                    List {
+                        Section {
+                            ForEach(manager.todaysEntries()) { entry in
+                                HStack {
+                                    Image(systemName: entry.beverageType.category.iconName)
+                                        .foregroundColor(.blue)
+                                        .frame(width: 30)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(entry.beverageType.name)
+                                            .font(.system(size: 16, weight: .medium))
+                                        Text(entry.timestamp, style: .time)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+
+                                    Spacer()
+
+                                    Text("\(Int(entry.caffeineAmount)) mg")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundColor(.primary)
+                                }
+                                .padding(.vertical, 10)
+                                .padding(.horizontal, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(Color(.systemBackground))
+                                        .shadow(color: Color.black.opacity(0.05), radius: 3, y: 1)
+                                )
+                                .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button(role: .destructive) {
+                                        manager.deleteEntry(entry)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                            }
+                            .onDelete { indexSet in
+                                let todaysEntries = manager.todaysEntries()
+                                for index in indexSet { manager.deleteEntry(todaysEntries[index]) }
+                            }
+                        } header: {
                             HStack {
                                 Text("Today's Drinks")
                                     .font(.headline)
@@ -84,53 +127,12 @@ struct DashboardView: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
-                            .padding(.horizontal)
-                            
-                            ForEach(manager.todaysEntries()) { entry in
-                                HStack {
-                                    Image(systemName: entry.beverageType.category.iconName)
-                                        .foregroundColor(.blue)
-                                        .frame(width: 30)
-                                    
-                                    VStack(alignment: .leading) {
-                                        Text(entry.beverageType.name)
-                                            .font(.system(size: 16, weight: .medium))
-                                        Text(entry.timestamp, style: .time)
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    VStack(alignment: .trailing) {
-                                        Text("\(Int(entry.caffeineAmount)) mg")
-                                            .font(.system(size: 15, weight: .semibold))
-                                            .foregroundColor(.primary)
-                                        if let notes = entry.notes, !notes.isEmpty {
-                                            Image(systemName: "note.text")
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
-                                        }
-                                    }
-                                }
-                                .padding(.vertical, 10)
-                                .padding(.horizontal, 12)
-                                .background(Color(.systemBackground))
-                                .cornerRadius(8)
-                                .padding(.horizontal)
-                            }
-                            .onDelete { indexSet in
-                                let todaysEntries = manager.todaysEntries()
-                                for index in indexSet {
-                                    manager.deleteEntry(todaysEntries[index])
-                                }
-                            }
+                            .textCase(nil)
+                            .padding(.bottom, 4)
                         }
-                        .padding()
                     }
-                    .background(Color(.systemGray6).opacity(0.5))
-                    .cornerRadius(10)
-                    .padding(.horizontal, 5)
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
                 }
                 
                 Spacer()
@@ -146,18 +148,10 @@ struct DashboardView: View {
                     .foregroundColor(.secondary)
                 }
             }
-            //.navigationTitle("Caffeine Tracker")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Caffeine Tracker").font(.title2).bold()
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        showingAddEntry = true
-                    }) {
-                        Image(systemName: "plus")
-                    }
                 }
             }
             .sheet(isPresented: $showingAddEntry) {

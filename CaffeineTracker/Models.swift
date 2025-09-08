@@ -134,6 +134,7 @@ struct CaffeineEntry: Identifiable, Codable {
         servingSize: Double? = nil,
         notes: String? = nil
     ) {
+        // init lets us set all fields, with defaults for id, timestamp, and serving size
         self.id = id
         self.timestamp = timestamp
         self.beverageType = beverageType
@@ -151,7 +152,7 @@ extension CaffeineEntry: Persistable {
 
 // MARK: - Error Handling
 
-// Find this enum and add Equatable:
+// user-facing errors; Equatable helps with tests and simple comparisons in UI
 enum CaffeineTrackerError: LocalizedError, Equatable {
     case invalidAmount
     case exceedsMaximumLimit(limit: Double)

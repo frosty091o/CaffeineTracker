@@ -109,27 +109,27 @@ class CaffeineIntakeManager: ObservableObject {
     }
     
     // MARK: - Calendar Methods
-
+    
     func entries(for date: Date) -> [CaffeineEntry] {
         let calendar = Calendar.current
         return entries
             .filter { calendar.isDate($0.timestamp, inSameDayAs: date) }
             .sorted { $0.timestamp > $1.timestamp }
     }
-
+    
     func totalCaffeine(for date: Date) -> Double {
         entries(for: date).reduce(0) { $0 + $1.caffeineAmount }
     }
-
+    
     func isOverLimit(for date: Date) -> Bool {
         totalCaffeine(for: date) > dailyLimit
     }
-
+    
     func percentageOfLimit(for date: Date) -> Double {
         let percentage = totalCaffeine(for: date) / dailyLimit
         return min(percentage, 1.5)
     }
-
+    
     func hasEntries(for date: Date) -> Bool {
         !entries(for: date).isEmpty
     }
@@ -151,6 +151,112 @@ class CaffeineIntakeManager: ObservableObject {
         return total / 7.0
     }
     
+    /// Average daily intake over the last `days` days.
+    /// By default this averages only days with entries (more representative of actual consumption days).
+    /// If you prefer to include zero-intake days, change the divisor to `Double(days)`.
+    func averageDailyIntake(days: Int) -> Double {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+
+        var sum: Double = 0
+        var daysWithEntries = 0
+
+        for i in 0..<days {
+            guard let date = calendar.date(byAdding: .day, value: -i, to: today) else { continue }
+            let dailyTotal = self.totalCaffeine(for: date)
+            if dailyTotal > 0 {
+                sum += dailyTotal
+                daysWithEntries += 1
+            }
+        }
+
+        return daysWithEntries > 0 ? sum / Double(daysWithEntries) : 0
+    }
+
+    /// Convenience: map a UI period to an average.
+    func dailyAverage(period: String = "Week") -> Double {
+        let days: Int
+        switch period {
+        case "Week": days = 7
+        case "Month": days = 30
+        default: days = 365
+        }
+        return averageDailyIntake(days: days)
+    }
+
+    /// Count total drinks in the last `days` days.
+    func totalDrinks(inLast days: Int) -> Int {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        return entries.filter { $0.timestamp > cutoff }.count
+    }
+
+    /// Convenience: map a UI period to total drinks.
+    func totalDrinks(period: String = "Week") -> Int {
+        let days: Int
+        switch period {
+        case "Week": days = 7
+        case "Month": days = 30
+        default: days = 365
+        }
+        return totalDrinks(inLast: days)
+    }
+
+    /// Number of days over the limit in the last `days` days.
+    func daysOverLimit(inLast days: Int) -> Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        var count = 0
+        for i in 0..<days {
+            if let date = calendar.date(byAdding: .day, value: -i, to: today) {
+                if totalCaffeine(for: date) > dailyLimit { count += 1 }
+            }
+        }
+        return count
+    }
+
+    /// Convenience: map a UI period to days over limit.
+    func daysOverLimit(period: String = "Week") -> Int {
+        let days: Int
+        switch period {
+        case "Week": days = 7
+        case "Month": days = 30
+        default: days = 365
+        }
+        return daysOverLimit(inLast: days)
+    }
+
+    /// Current streak (consecutive days) at or under the daily limit, ending today.
+    func currentStreak() -> Int {
+        var streak = 0
+        var date = Date()
+        let calendar = Calendar.current
+        while totalCaffeine(for: date) <= dailyLimit {
+            streak += 1
+            guard let previousDate = calendar.date(byAdding: .day, value: -1, to: date) else { break }
+            date = previousDate
+            if !hasEntries(for: date) { break }
+        }
+        return max(0, streak - 1)
+    }
+
+    /// Helper: entries from the last `days` days (newest first)
+    func entriesInLastDays(_ days: Int) -> [CaffeineEntry] {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        return entries.filter { $0.timestamp >= cutoff }.sorted { $0.timestamp > $1.timestamp }
+    }
+
+    /// Helper: total per-day for the last `days` days, oldest → newest
+    func lastNDaysTotals(_ days: Int) -> [(date: Date, total: Double)] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        var result: [(Date, Double)] = []
+        for i in stride(from: days - 1, through: 0, by: -1) {
+            guard let date = calendar.date(byAdding: .day, value: -i, to: today) else { continue }
+            result.append((date, totalCaffeine(for: date)))
+        }
+        return result
+    }
+    
     // MARK: - Persistence
     
     private func saveEntries() {
@@ -170,4 +276,5 @@ class CaffeineIntakeManager: ObservableObject {
     func saveDailyLimit() {
         UserDefaults.standard.set(dailyLimit, forKey: dailyLimitKey)
     }
+    
 }

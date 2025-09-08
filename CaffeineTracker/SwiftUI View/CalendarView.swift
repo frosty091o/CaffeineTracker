@@ -5,31 +5,40 @@
 //  Created by Ethan on 7/9/2025.
 //
 
+// calendar screen: pick a day, see quick stats, and dive into details.
+
 import SwiftUI
 
 struct CalendarView: View {
+    // data + UI state
+    // selectedDate drives the grid highlight and the quick stats at the bottom
     @EnvironmentObject var manager: CaffeineIntakeManager
     @State private var selectedDate = Date()
     @State private var showingDateDetail = false
     @State private var showingAddEntry = false
     
+    // use the user’s current calendar/locale
     let calendar = Calendar.current
     
+    // first day of the visible month (used for headers + padding calc)
     var month: Date {
         calendar.dateInterval(of: .month, for: selectedDate)?.start ?? Date()
     }
     
+    // all days in the visible month as Date values
     var monthDays: [Date] {
         guard let monthInterval = calendar.dateInterval(of: .month, for: selectedDate),
               let daysInMonth = calendar.dateComponents([.day], from: monthInterval.start, to: monthInterval.end).day else {
             return []
         }
         
+        // build an array by adding 0..days-1 to the month start
         return (0..<daysInMonth).compactMap { dayOffset in
             calendar.date(byAdding: .day, value: dayOffset, to: monthInterval.start)
         }
     }
     
+    // title like “September 2025”
     var monthYearString: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM yyyy"
@@ -39,7 +48,7 @@ struct CalendarView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 16) {
-                // Month Navigation
+                // month nav + title
                 HStack {
                     Button(action: previousMonth) {
                         Image(systemName: "chevron.left")
@@ -64,7 +73,7 @@ struct CalendarView: View {
                 .padding(.vertical, 8)
                 .overlay(alignment: .bottom) { Divider() }
                 
-                // Weekday Headers
+                // SUN..SAT header row (localized short labels)
                 HStack {
                     ForEach(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], id: \.self) { day in
                         Text(day.uppercased())
@@ -76,9 +85,10 @@ struct CalendarView: View {
                 }
                 .padding(.horizontal)
                 
-                // Calendar Grid
+                // calendar grid (7 columns). nils are empty pads before/after the month
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 12) {
                     ForEach(daysWithPadding(), id: \.self) { date in
+                        // draw a real day cell or a transparent spacer
                         if let date = date {
                             DayView(date: date, isSelected: calendar.isDate(date, inSameDayAs: selectedDate))
                                 .environmentObject(manager)
@@ -98,7 +108,7 @@ struct CalendarView: View {
                 
                 Spacer()
                 
-                // Quick Stats for Selected Date (moved to bottom)
+                // quick stats for the selected day
                 VStack(spacing: 10) {
                     Text(formatSelectedDate())
                         .font(.headline)
@@ -141,9 +151,14 @@ struct CalendarView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 8)
             }
-            .navigationTitle("Calendar")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("Calendar")
+                        .font(.title2)
+                        .bold()
+                }
+                // jump back to today
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Today") {
                         selectedDate = Date()
@@ -157,10 +172,11 @@ struct CalendarView: View {
         }
     }
     
+    // build a 7×N grid: leading/trailing nils pad the first/last week
     func daysWithPadding() -> [Date?] {
         var days: [Date?] = []
         
-        // Add padding for days before month starts
+        // how many blanks before the 1st of the month (0-based index)
         let firstWeekday = calendar.component(.weekday, from: month) - 1
         days.append(contentsOf: Array(repeating: nil, count: firstWeekday))
         
@@ -175,14 +191,17 @@ struct CalendarView: View {
         return days
     }
     
+    // go to previous month
     func previousMonth() {
         selectedDate = calendar.date(byAdding: .month, value: -1, to: selectedDate) ?? selectedDate
     }
     
+    // go to next month
     func nextMonth() {
         selectedDate = calendar.date(byAdding: .month, value: 1, to: selectedDate) ?? selectedDate
     }
     
+    // friendly label for the selected day (Today/Yesterday/Date)
     func formatSelectedDate() -> String {
         if calendar.isDateInToday(selectedDate) {
             return "Today"
@@ -202,16 +221,19 @@ struct DayView: View {
     let isSelected: Bool
     @EnvironmentObject var manager: CaffeineIntakeManager
     
+    // “1”, “2”, ... for the cell label
     var dayNumber: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "d"
         return formatter.string(from: date)
     }
     
+    // true only for the real current day
     var isToday: Bool {
         Calendar.current.isDateInToday(date)
     }
     
+    // per-day data from the manager
     var caffeineAmount: Double {
         manager.totalCaffeine(for: date)
     }
@@ -222,32 +244,25 @@ struct DayView: View {
     
     var body: some View {
         ZStack {
+            // fill the whole cell when it’s today (no tiny dot)
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.systemBackground))
+                .fill(isToday ? Color.accentColor.opacity(0.12) : Color(.systemBackground))
                 .shadow(color: Color.black.opacity(0.04), radius: 3, y: 1)
             
             VStack(spacing: 6) {
                 Text(dayNumber)
                     .font(.system(size: 16, weight: isToday ? .bold : .medium))
                     .foregroundColor(.primary)
-                    .overlay(
-                        Group {
-                            if isToday {
-                                Capsule()
-                                    .stroke(Color.accentColor, lineWidth: 2)
-                                    .frame(height: 22)
-                                    .offset(y: 0)
-                                    .opacity(0.9)
-                            }
-                        }, alignment: .center
-                    )
                 
+                // show mg badge or a dash if empty
                 if hasEntries {
                     Text("\(Int(caffeineAmount))")
-                        .font(.caption2)
+                        .font(.system(size: 10, weight: .semibold))
                         .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .foregroundColor(manager.isOverLimit(for: date) ? .red : .green)
-                        .padding(.horizontal, 6)
+                        .padding(.horizontal, 5)
                         .padding(.vertical, 2)
                         .background(
                             Capsule().fill((manager.isOverLimit(for: date) ? Color.red.opacity(0.12) : Color.green.opacity(0.12)))
@@ -263,6 +278,7 @@ struct DayView: View {
         .frame(width: 44, height: 56)
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
+                // selected date outline
                 .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
         )
         .scaleEffect(isSelected ? 1.02 : 1.0)
@@ -277,12 +293,14 @@ struct DateDetailView: View {
     @Environment(\.dismiss) var dismiss
     @State private var showingAddEntry = false
     
+    // big title for the detail sheet
     var dateString: String {
         let formatter = DateFormatter()
         formatter.dateStyle = .long
         return formatter.string(from: date)
     }
     
+    // entries for this day (drives the list)
     var entries: [CaffeineEntry] {
         manager.entries(for: date)
     }
@@ -290,7 +308,7 @@ struct DateDetailView: View {
     var body: some View {
         NavigationView {
             VStack {
-                // Summary Card
+                // summary card: total mg + progress to daily limit
                 VStack(spacing: 10) {
                     Text("\(Int(manager.totalCaffeine(for: date)))")
                         .font(.system(size: 50, weight: .bold))
@@ -312,7 +330,7 @@ struct DateDetailView: View {
                 .shadow(color: Color.black.opacity(0.06), radius: 8, y: 2)
                 .padding()
                 
-                // Entries List
+                // empty state vs. list of entries
                 if entries.isEmpty {
                     VStack {
                         Image(systemName: "cup.and.saucer")
@@ -327,6 +345,7 @@ struct DateDetailView: View {
                 } else {
                     List {
                         ForEach(entries) { entry in
+                            // entry row
                             HStack {
                                 Image(systemName: entry.beverageType.category.iconName)
                                     .foregroundColor(.blue)
@@ -346,6 +365,7 @@ struct DateDetailView: View {
                             }
                         }
                         .onDelete { indexSet in
+                            // simple delete (no undo)
                             for index in indexSet {
                                 manager.deleteEntry(entries[index])
                             }
@@ -353,7 +373,7 @@ struct DateDetailView: View {
                     }
                 }
                 
-                // Add Button
+                // quick add button scoped to this date
                 Button(action: {
                     showingAddEntry = true
                 }) {

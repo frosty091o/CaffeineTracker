@@ -6,7 +6,9 @@
 
 import SwiftUI
 
+// main entry view with a TabView for Today, Calendar, Stats, Settings
 struct ContentView: View {
+    // one manager instance shared across all tabs
     @StateObject private var manager = CaffeineIntakeManager()
     
     var body: some View {
@@ -23,9 +25,9 @@ struct ContentView: View {
                 }
                 .environmentObject(manager)
             
-            HistoryView()
+            StatsView()
                 .tabItem {
-                    Label("History", systemImage: "clock")
+                    Label("Stats", systemImage: "chart.bar.fill")
                 }
                 .environmentObject(manager)
             

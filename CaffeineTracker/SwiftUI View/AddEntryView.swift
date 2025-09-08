@@ -7,12 +7,24 @@
 
 import SwiftUI
 
+// quick form to add a drink. pick a preset or "Custom…", set mg, add notes, save.
+
 struct AddEntryView: View {
     let lookup = CaffeineLookupService(fdcKey: "b0cehDATvB5rLhcsQTDDtO6GZia3fSeYjNzUAOBf")
     @EnvironmentObject var manager: CaffeineIntakeManager
     @Environment(\.dismiss) var dismiss
+
+    // "Custom…" option so you can type your own drink
+    private let customPlaceholder = BeverageType(
+        name: "Custom",
+        defaultCaffeineContent: 0,
+        servingSize: BeverageType.espresso.servingSize,
+        category: .coffee // adjust if you have .custom/.other
+    )
     
+    // form state
     @State private var selectedBeverage = BeverageType.espresso
+    @State private var customName = ""
     @State private var customAmount = ""
     @State private var useCustomAmount = false
     @State private var notes = ""
@@ -24,6 +36,7 @@ struct AddEntryView: View {
     @State private var results: [LookupResult] = []
     @State private var isLoading = false
     
+    // caffeine we save (uses custom when toggled)
     var calculatedCaffeine: Double {
         if useCustomAmount {
             return Double(customAmount) ?? 0
@@ -31,6 +44,7 @@ struct AddEntryView: View {
         return selectedBeverage.defaultCaffeineContent
     }
     
+    // enable Add only when > 0 mg
     var isValidEntry: Bool {
         calculatedCaffeine > 0
     }
@@ -38,17 +52,31 @@ struct AddEntryView: View {
     var body: some View {
         NavigationView {
             Form {
-                // Beverage Selection
+                // presets + a "Custom…" at the end
                 Section(header: Text("Select Beverage")) {
                     Picker("Beverage", selection: $selectedBeverage) {
                         ForEach(BeverageType.allPresets, id: \.name) { beverage in
                             Text(beverage.name).tag(beverage)
                         }
+                        Text("Custom…").tag(customPlaceholder)
                     }
                     .pickerStyle(MenuPickerStyle())
+                    // when Custom is picked, flip on custom amount
+                    .onChange(of: selectedBeverage) { newValue in
+                        if newValue.name == "Custom" { useCustomAmount = true }
+                    }
+
+                    // show name only for Custom
+                    if selectedBeverage.name == "Custom" {
+                        TextField("Enter beverage name", text: $customName)
+                            .textInputAutocapitalization(.words)
+                            .disableAutocorrection(true)
+                            .foregroundColor(.primary)
+                            .font(.body)
+                    }
                 }
                 
-                // Caffeine Amount
+                // type your own mg
                 Section(header: Text("Caffeine Content")) {
                     Toggle("Custom Amount", isOn: $useCustomAmount)
                     
@@ -62,6 +90,7 @@ struct AddEntryView: View {
                                 .foregroundColor(.red)
                         }
                     } else {
+                        // preset default mg (read‑only)
                         HStack {
                             Text("Amount")
                             Spacer()
@@ -71,7 +100,7 @@ struct AddEntryView: View {
                     }
                 }
                 
-                // Lookup Section
+                // search by name or barcode
                 Section(header: Text("Lookup (Optional)")) {
                     TextField("Search by name or barcode", text: $query)
                     
@@ -83,19 +112,20 @@ struct AddEntryView: View {
                             
                             let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
                             
-                            // If numeric -> treat as barcode (Open Food Facts first)
+                            // barcode -> OFF; name -> OFF + USDA (in parallel)
+                            // looks like a barcode
                             if !trimmed.isEmpty && trimmed.allSatisfy({ $0.isNumber }) {
                                 let barcodeResults = (try? await lookup.fetchByBarcodeOFF(barcode: trimmed)) ?? []
                                 results = barcodeResults.filter { ($0.mgPerServing ?? 0) > 0 }
                             } else {
-                                // Run OFF + FDC in parallel for text queries
+                                // fire both
                                 async let offTask = lookup.searchOFFByName(name: trimmed)
                                 async let fdcTask = lookup.searchFDC(name: trimmed)
                                 
                                 let off = (try? await offTask) ?? []
                                 let fdc = (try? await fdcTask) ?? []
                                 
-                                // Combine, filter, de-duplicate by name+amount
+                                // merge, keep items with mg, dedupe by name+mg
                                 let combined = (off + fdc).filter { ($0.mgPerServing ?? 0) > 0 }
                                 var seen = Set<String>()
                                 results = combined.filter { r in
@@ -110,6 +140,7 @@ struct AddEntryView: View {
                         ProgressView()
                     }
                     
+                    // tap to fill the form
                     ForEach(results) { r in
                         Button {
                             selectedBeverage = BeverageType(name: r.displayName, defaultCaffeineContent: r.mgPerServing ?? 0, servingSize: selectedBeverage.servingSize, category: .coffee)
@@ -131,7 +162,7 @@ struct AddEntryView: View {
                     TextField("Add notes...", text: $notes)
                 }
                 
-                // Warning Section
+                // high number
                 if calculatedCaffeine > 200 {
                     Section {
                         HStack {
@@ -143,6 +174,7 @@ struct AddEntryView: View {
                     }
                 }
                 
+                // will exceed today’s limit
                 if manager.todaysTotalCaffeine() + calculatedCaffeine > manager.dailyLimit {
                     Section {
                         HStack {
@@ -157,12 +189,14 @@ struct AddEntryView: View {
             .navigationTitle("Add Entry")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // cancel
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {
                         dismiss()
                     }
                 }
                 
+                // save
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Add") {
                         addEntry()
@@ -179,22 +213,42 @@ struct AddEntryView: View {
     }
     
     func addEntry() {
-        // Validate amount
+        // quick checks
         guard calculatedCaffeine > 0 else {
             errorMessage = "Caffeine amount must be greater than 0"
             showingError = true
             return
         }
         
+        // >1000 mg is probably a mistake
         guard calculatedCaffeine < 1000 else {
             errorMessage = "Caffeine amount seems too high. Please check."
             showingError = true
             return
         }
         
-        // Create and add entry
+        // build custom beverage when needed
+        let beverageForEntry: BeverageType
+        if selectedBeverage.name == "Custom" {
+            let trimmed = customName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                errorMessage = "Please enter a name for your custom beverage."
+                showingError = true
+                return
+            }
+            beverageForEntry = BeverageType(
+                name: trimmed,
+                defaultCaffeineContent: calculatedCaffeine,
+                servingSize: BeverageType.espresso.servingSize,
+                category: .coffee
+            )
+        } else {
+            beverageForEntry = selectedBeverage
+        }
+        
+        // save it
         let entry = CaffeineEntry(
-            beverageType: selectedBeverage,
+            beverageType: beverageForEntry,
             caffeineAmount: calculatedCaffeine,
             notes: notes.isEmpty ? nil : notes
         )
